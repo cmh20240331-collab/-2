@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<meta name="theme-color" content="#d6a65a">
+<title>오목 게임</title>
+<style>
+*{box-sizing:border-box}body{margin:0;min-height:100vh;background:#f4f0e8;color:#222;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR",sans-serif;display:flex;justify-content:center;align-items:center}.app{width:100%;max-width:680px;padding:24px 16px 32px;text-align:center}h1{margin:0;font-size:42px;letter-spacing:-2px}.status{margin:8px 0 18px;font-size:18px;font-weight:700}.players{display:flex;justify-content:center;align-items:center;gap:28px;margin-bottom:18px}.player{display:flex;align-items:center;gap:8px;font-weight:700;transition:.15s}.player.active{transform:scale(1.08)}.dot{width:22px;height:22px;border-radius:50%;display:inline-block;box-shadow:0 2px 5px #0004}.dot.black{background:#111}.dot.white{background:#fff;border:1px solid #aaa}.board-wrap{width:min(92vw,620px);aspect-ratio:1;margin:auto;padding:4%;background:#d6a65a;border:4px solid #93672e;border-radius:6px;box-shadow:0 12px 28px #0003,inset 0 0 12px #0002}.board{width:100%;height:100%;display:grid;grid-template-columns:repeat(15,1fr);grid-template-rows:repeat(15,1fr)}.cell{position:relative;display:flex;justify-content:center;align-items:center;cursor:pointer;user-select:none;-webkit-tap-highlight-color:transparent}.cell:before{content:"";position:absolute;left:0;right:0;top:50%;height:1px;background:#4c351d;transform:translateY(-50%)}.cell:after{content:"";position:absolute;top:0;bottom:0;left:50%;width:1px;background:#4c351d;transform:translateX(-50%)}.cell:hover:not(.occupied){background:#fff2}.stone{position:relative;z-index:2;width:82%;height:82%;border-radius:50%;pointer-events:none;box-shadow:0 2px 5px #0006,inset -2px -3px 5px #0003}.stone.black{background:radial-gradient(circle at 32% 28%,#666,#222 35%,#050505 75%)}.stone.white{background:radial-gradient(circle at 32% 28%,#fff,#f5f5f5 40%,#cfcfcf);border:1px solid #aaa}.cell.win{background:#ffe13c99;border-radius:50%}.result{min-height:30px;margin:16px 0 12px;font-size:20px;font-weight:800}button{border:0;border-radius:9px;padding:13px 28px;background:#222;color:#fff;font-size:16px;font-weight:700;cursor:pointer}button:hover{background:#444}@media(max-width:480px){.app{padding:18px 10px 24px}h1{font-size:34px}.status{font-size:16px}.players{gap:18px}.board-wrap{width:94vw;border-width:2px}.stone{width:84%;height:84%}}
+</style>
+</head>
+<body>
+<main class="app">
+<h1>오목</h1>
+<div id="status" class="status">⚫ 흑돌 차례</div>
+<div class="players">
+<div id="blackPlayer" class="player active"><span class="dot black"></span><span>흑</span></div>
+<strong>VS</strong>
+<div id="whitePlayer" class="player"><span class="dot white"></span><span>백</span></div>
+</div>
+<div class="board-wrap"><div id="board" class="board"></div></div>
+<div id="result" class="result"></div>
+<button id="restart">새 게임</button>
+</main>
+<script>
+"use strict";
+const SIZE=15,EMPTY=0,BLACK=1,WHITE=2;
+let board=[],currentPlayer=BLACK,gameFinished=false;
+const boardEl=document.getElementById("board"),statusEl=document.getElementById("status"),resultEl=document.getElementById("result"),restartEl=document.getElementById("restart"),blackEl=document.getElementById("blackPlayer"),whiteEl=document.getElementById("whitePlayer");
+
+function startGame(){
+ board=Array.from({length:SIZE},()=>Array(SIZE).fill(EMPTY));
+ currentPlayer=BLACK;gameFinished=false;resultEl.textContent="";createBoard();updateStatus();
+}
+function createBoard(){
+ boardEl.innerHTML="";
+ for(let r=0;r<SIZE;r++)for(let c=0;c<SIZE;c++){
+  const cell=document.createElement("div");
+  cell.className="cell";cell.dataset.row=r;cell.dataset.col=c;
+  cell.addEventListener("click",onCellClick);boardEl.appendChild(cell);
+ }
+}
+function onCellClick(e){
+ if(gameFinished)return;
+ const cell=e.currentTarget,r=+cell.dataset.row,c=+cell.dataset.col;
+ if(board[r][c]!==EMPTY)return;
+ board[r][c]=currentPlayer;drawStone(cell,currentPlayer);
+ const line=findWinningLine(r,c,currentPlayer);
+ if(line){
+  gameFinished=true;highlight(line);
+  resultEl.textContent=`🎉 ${currentPlayer===BLACK?"흑돌":"백돌"} 승리!`;
+  statusEl.textContent="게임 종료";blackEl.classList.remove("active");whiteEl.classList.remove("active");return;
+ }
+ if(isDraw()){
+  gameFinished=true;resultEl.textContent="🤝 무승부입니다!";statusEl.textContent="게임 종료";blackEl.classList.remove("active");whiteEl.classList.remove("active");return;
+ }
+ currentPlayer=currentPlayer===BLACK?WHITE:BLACK;updateStatus();
+}
+function drawStone(cell,p){
+ cell.classList.add("occupied");
+ const stone=document.createElement("div");stone.className=`stone ${p===BLACK?"black":"white"}`;cell.appendChild(stone);
+}
+function updateStatus(){
+ if(currentPlayer===BLACK){statusEl.textContent="⚫ 흑돌 차례";blackEl.classList.add("active");whiteEl.classList.remove("active")}
+ else{statusEl.textContent="⚪ 백돌 차례";whiteEl.classList.add("active");blackEl.classList.remove("active")}
+}
+function findWinningLine(row,col,p){
+ const dirs=[[0,1],[1,0],[1,1],[1,-1]];
+ for(const[dr,dc]of dirs){
+  const line=[[row,col]];
+  let r=row+dr,c=col+dc;
+  while(isInside(r,c)&&board[r][c]===p){line.push([r,c]);r+=dr;c+=dc}
+  r=row-dr;c=col-dc;
+  while(isInside(r,c)&&board[r][c]===p){line.push([r,c]);r-=dr;c-=dc}
+  if(line.length>=5)return line;
+ }
+ return null;
+}
+function isInside(r,c){return r>=0&&r<SIZE&&c>=0&&c<SIZE}
+function highlight(line){
+ for(const[r,c]of line){const cell=boardEl.querySelector(`[data-row="${r}"][data-col="${c}"]`);if(cell)cell.classList.add("win")}
+}
+function isDraw(){return board.every(row=>row.every(v=>v!==EMPTY))}
+restartEl.addEventListener("click",startGame);
+startGame();
+</script>
+</body>
+</html>
